@@ -1,0 +1,12 @@
+# Dataset creation
+raw_data:
+  path: data/raw
+  ticker_index: "WIG20"
+  file_extension: "prn"
+
+preprocessing:
+  windows: [30, 60]
+  output_path: data/processed
+  output_filename: "processed.parquet"
+
+
