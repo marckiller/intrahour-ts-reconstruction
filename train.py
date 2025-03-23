@@ -1,29 +1,22 @@
+import os
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from src.dataset import FinancialDataset, masked_mse_loss
-import os
+from src.dataset import FinancialDataset
+from src.model import SimpleReconstructionModel, masked_mse_loss
 
-class SimpleReconstructionModel(nn.Module):
-    def __init__(self, hidden_dim=64):
-        super(SimpleReconstructionModel, self).__init__()
-        self.index_conv = nn.Conv1d(in_channels=1, out_channels=hidden_dim, kernel_size=3, padding=1)
 
-    def forward(self, batch):
-        series_index = batch['series_index']
-        series_mask = batch['series_mask']
-        scalar_embed = batch['scalar_embed']
+def anchor_loss(pred, target, mask, radius=1):
+    loss = 0
+    for offset in range(-radius, radius + 1):
+        if offset == 0:
+            continue
+        shifted_mask = torch.roll(mask, shifts=offset, dims=1)
+        loss += (((pred - target) ** 2) * shifted_mask).sum()
+    return loss / (mask.sum() + 1e-8)
 
-        trend = torch.diff(series_index, dim=1, prepend=series_index[:, :1])
-        trend_conv_input = trend.unsqueeze(1)
-        trend_features = self.index_conv(trend_conv_input).transpose(1, 2)
-
-        x = torch.cat([trend_features, scalar_embed], dim=-1)
-        pred = self.decoder(x).squeeze(-1)
-        pred = torch.where(series_mask == 1, series, 0.7 * series + 0.3 * pred)
-        pred = torch.where(series_mask == 1, series, pred)
-        
-        return pred
+def close_loss(pred, close_val):
+    return ((pred[:, -1] - close_val) ** 2).mean()
 
 DATA_PATH = 'data/processed/ml_ready.parquet'
 MODEL_PATH = 'saved_models/simple_model.pth'
@@ -47,7 +40,10 @@ for epoch in range(EPOCHS):
     for batch in train_loader:
         batch = {k: v.to(DEVICE).float() for k, v in batch.items()}
         pred = model(batch)
-        loss = masked_mse_loss(pred, batch['series_target'], batch['series_target_mask'])
+        mse = masked_mse_loss(pred, batch['series_target'], batch['series_target_mask'])
+        anchor = anchor_loss(pred, batch['series_target'], batch['series_mask'])
+        close = close_loss(pred, batch['close'])
+        loss = mse + 0.1 * anchor + 0.1 * close
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()

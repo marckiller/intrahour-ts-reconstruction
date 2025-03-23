@@ -13,9 +13,10 @@ class SimpleReconstructionModel(nn.Module):
         self.series_index_proj = nn.Linear(1, hidden_dim)
         self.scalar_proj = nn.Linear(6, hidden_dim)
         self.index_conv = nn.Conv1d(in_channels=1, out_channels=hidden_dim, kernel_size=3, padding=1)
+        self.series_hint_proj = nn.Linear(2, hidden_dim)
         
         self.combined_processor = nn.Sequential(
-            nn.Linear(hidden_dim * 2, hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU()
@@ -41,14 +42,15 @@ class SimpleReconstructionModel(nn.Module):
             batch['open'], batch['close'],
             batch['open_index'], batch['close_index'],
             batch['corr_30h'], batch['corr_60h']
-        ], dim=-1)  # (B, 6)
-        scalar_embed = self.scalar_proj(scalar_features).unsqueeze(1).expand(-1, S, -1)
+        ], dim=-1)
+        global_embed = self.scalar_proj(scalar_features).unsqueeze(1).expand(-1, S, -1)
 
-        x = torch.cat([trend_features, scalar_embed], dim=-1)
+        series_and_mask = torch.stack([series, series_mask], dim=-1)  # (B, S, 2)
+        series_embed = self.series_hint_proj(series_and_mask)
+
+        x = trend_features + global_embed + series_embed
         x = self.combined_processor(x)
         pred = self.decoder(x).squeeze(-1)
-        pred = torch.where(series_mask == 1, series, 0.7 * series + 0.3 * pred)
-        pred = torch.where(series_mask == 1, series, pred)
         return pred
 
 def masked_mse_loss(pred, target, mask):

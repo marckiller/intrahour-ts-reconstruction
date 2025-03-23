@@ -1,14 +1,18 @@
-import torch
-from torch.utils.data import DataLoader
-import matplotlib.pyplot as plt
+import os
+import pandas as pd
 import numpy as np
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+from src.dataset import FinancialDataset
+from src.model import SimpleReconstructionModel, masked_mse_loss
 
-from src.dataset import FinancialDataset, SimpleReconstructionModel
+import matplotlib.pyplot as plt
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 MODEL_PATH = "saved_models/simple_model.pth"
 
-test_dataset = FinancialDataset('data/processed/ml_ready.parquet', '2023-01-01', '2025-12-31', series_mask_fraction=0.8)
+test_dataset = FinancialDataset('data/processed/ml_ready.parquet', '2023-01-01', '2025-12-31', series_mask_fraction=0.0)
 test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
 model = SimpleReconstructionModel().to(DEVICE)
@@ -35,7 +39,7 @@ for i, batch in enumerate(test_loader):
     plt.figure(figsize=(10, 5))
     plt.plot(x[target_mask == 1], target[target_mask == 1], label="series_target", color='gray', linewidth=2)
     plt.plot(x[index_mask == 1], index_series[index_mask == 1], label="series_index", color='dimgray', linestyle='dashed')
-    plt.plot(x, pred, label="series_pred", color='lightgray', linestyle='solid')
+    plt.plot(x, pred, label="series_pred", color='blue', linestyle='solid')
     plt.scatter(x[input_mask == 1], input_series[input_mask == 1], label="series (input)", color='red', s=20, zorder=10)
     plt.legend()
     plt.title(f"Example {i}")
