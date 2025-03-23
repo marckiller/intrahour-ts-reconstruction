@@ -68,6 +68,12 @@ def merge_daily_into_hourly(df_hour_instrument, df_day_instrument):
     
     return df_hour_instrument
 
+def add_index_ohlc(df_instrument, df_index):
+    
+    df_index_renamed = df_index[["open", "high", "low", "close"]].add_suffix("_index")
+    df_instrument = df_instrument.join(df_index_renamed, how="left")
+    return df_instrument
+
 def merge_instrument_data(dataset, df_instrument_hour, ticker_name):
 
     df = df_instrument_hour.copy()

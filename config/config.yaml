@@ -6,6 +6,7 @@ raw_data:
 
 preprocessing:
   windows: [30, 60]
+  max_hour: 16
   output_path: data/processed
   output_filename: "processed.parquet"
 

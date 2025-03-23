@@ -67,6 +67,10 @@ for file in instrument_filenames:
     df_instrument_hour = calculate_rolling_correlations(df_instrument_hour, df_index_hour, windows, "h")
 
     df_instrument_hour.dropna(inplace=True)
+    
+    df_instrument_hour = add_index_ohlc(df_instrument_hour, df_index_hour)
+
+    print(df_instrument_hour.columns)
 
     dataset = merge_instrument_data(dataset, df_instrument_hour, ticker_name)
 
@@ -82,3 +86,5 @@ output_path = os.path.join(output_dir, file_name)
 dataset.to_parquet(output_path, index=False)
 
 print(f"Dataset saved as: {output_path}")
+
+print(dataset)
