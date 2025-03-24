@@ -15,11 +15,12 @@ class SimpleReconstructionModel(nn.Module):
         self.index_conv = nn.Conv1d(in_channels=1, out_channels=hidden_dim, kernel_size=3, padding=1)
         self.series_hint_proj = nn.Linear(2, hidden_dim)
         
-        self.combined_processor = nn.Sequential(
+        self.norm = nn.LayerNorm(hidden_dim)
+        self.rnn = nn.GRU(hidden_dim, hidden_dim, num_layers=2, batch_first=True, dropout=0.1)
+        self.post_gru = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU()
+            nn.Linear(hidden_dim, hidden_dim)
         )
         
         self.decoder = nn.Sequential(
@@ -49,7 +50,11 @@ class SimpleReconstructionModel(nn.Module):
         series_embed = self.series_hint_proj(series_and_mask)
 
         x = trend_features + global_embed + series_embed
-        x = self.combined_processor(x)
+        x = self.norm(x)
+        x, _ = self.rnn(x)
+        x = x + trend_features
+        x = self.post_gru(x)
+        
         pred = self.decoder(x).squeeze(-1)
         return pred
 

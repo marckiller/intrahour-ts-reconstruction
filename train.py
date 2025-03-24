@@ -18,11 +18,14 @@ def anchor_loss(pred, target, mask, radius=1):
 def close_loss(pred, close_val):
     return ((pred[:, -1] - close_val) ** 2).mean()
 
+def smoothness_loss(pred):
+    return ((pred[:, 1:] - pred[:, :-1]) ** 2).mean()
+
 DATA_PATH = 'data/processed/ml_ready.parquet'
 MODEL_PATH = 'saved_models/simple_model.pth'
 os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
-BATCH_SIZE = 32
-EPOCHS = 10
+BATCH_SIZE = 16
+EPOCHS = 5
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 train_dataset = FinancialDataset(DATA_PATH, '2005-01-01', '2017-12-31')
@@ -43,7 +46,8 @@ for epoch in range(EPOCHS):
         mse = masked_mse_loss(pred, batch['series_target'], batch['series_target_mask'])
         anchor = anchor_loss(pred, batch['series_target'], batch['series_mask'])
         close = close_loss(pred, batch['close'])
-        loss = mse + 0.1 * anchor + 0.1 * close
+        smooth = smoothness_loss(pred)
+        loss = mse + 0.1 * anchor + 0.1 * close + 0.01 * smooth
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
